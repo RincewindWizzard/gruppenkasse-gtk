@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 from collections import namedtuple
 from decimal import *
+from gi.repository import GObject
 getcontext().prec = 2
 
 
@@ -43,9 +44,17 @@ class Event(Model):
         assert isinstance(expense, Expense)
         self.expenses.append(expense)
 
-class Person(Model):
+    def __str__(self):
+        return str(self.name)
+
+class Person(Model, GObject.GObject):
+    name = GObject.property(type=str)
     def __init__(self, name):
+        GObject.GObject.__init__(self)
         self.name = name
+
+    def __str__(self):
+        return str(self.name)
 
 class Expense(Model):
     def __init__(self, name, amount):

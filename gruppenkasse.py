@@ -17,9 +17,13 @@ class GruppenkasseGUI(object):
 
         # Navigation Sidebar
         self._selection_blocked = False # used for unselect_all
-        self.person_list = Gtk.ListStore(str)
+        self.person_list = Gtk.ListStore(model.Person.__gtype__)
         self.builder.get_object("person_list").set_model(self.person_list)
-        self.builder.get_object("person_column").set_sort_column_id(0)
+        column = self.builder.get_object("person_column")
+        column.set_sort_column_id(0)
+        column.set_cell_data_func(self.builder.get_object("person_cell"), 
+            lambda column, cell, model, index, data:  cell.set_property('text', str(model[index][0]))
+        )
 
         self.event_list = Gtk.ListStore(str)
         self.builder.get_object("event_list").set_model(self.event_list)
@@ -35,7 +39,7 @@ class GruppenkasseGUI(object):
         self.event_list.clear()
         self.person_list.clear()
         for person in self.model.persons:
-            self.person_list.append([person.name])
+            self.person_list.append([person])
 
         for event in self.model.events:
             self.event_list.append([event.name])
