@@ -19,9 +19,11 @@ class GruppenkasseGUI(object):
         self._selection_blocked = False # used for unselect_all
         self.person_list = Gtk.ListStore(str)
         self.builder.get_object("person_list").set_model(self.person_list)
+        self.builder.get_object("person_column").set_sort_column_id(0)
 
         self.event_list = Gtk.ListStore(str)
         self.builder.get_object("event_list").set_model(self.event_list)
+        self.builder.get_object("event_column").set_sort_column_id(0)
         self.update_view()
 
         # Connect all Signal handlers to this object
