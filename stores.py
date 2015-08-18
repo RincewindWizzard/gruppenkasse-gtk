@@ -28,9 +28,4 @@ def named_gobject(type_name, **properties):
     return type(type_name, (GObject,), dict(__init__=__init__, __repr__=__repr__, **properties))
     
 
-if __name__ == "__main__":
-    Person = named_gobject("Person", vorname=str, nachname=str, alter=int)
-    p = Person(vorname="John", nachname="Smith", alter=42)
-    p.friend = Person(vorname="Jack", nachname="Daniel", alter=18)
-    print(p)
-    print(p.friend)
+
