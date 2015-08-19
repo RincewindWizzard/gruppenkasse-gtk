@@ -57,7 +57,9 @@ class GruppenkasseGUI(object):
 
             model, path = selection.get_selected_rows()
             event = model[path][0]
-            self.builder["participants_list"].set_model(self.model.participants_of(event))
+            participants = self.model.participants_of(event)
+            participants.append(["Bloed"])
+            self.builder["participants_list"].set_model(participants)
             self.builder["expenses_list"].set_model(self.model.expenses_of(event))
 
 
