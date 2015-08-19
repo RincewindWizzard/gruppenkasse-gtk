@@ -10,7 +10,7 @@ from model import GruppenkasseStore
 
 class TestListStore(unittest.TestCase):
     def setUp(self):
-        store = GruppenkasseStore(ex.transfers, ex.expenses, ex.persons, ex.participations)
+        store = GruppenkasseStore()
 
     def test_transfers(self):
         ...
