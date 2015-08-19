@@ -1,68 +1,55 @@
 #!/usr/bin/python3
 # -*- encoding: utf-8 -*-
-from collections import namedtuple
-from decimal import *
-from gi.repository import GObject
-getcontext().prec = 2
-
-
-class Model(object):
-    def __repr__(self):
-        return repr(self.__dict__)
-        
-
-class Fund(Model):
-    def __init__(self, events=[]):
-        self.events = events
-
-    def add_event(self, event):
-        assert isinstance(event, Event)
-        self.events.append(event)
-
-    @property
-    def persons(self):
-        p = []
-        for event in self.events:
-            p.extend(event.participants)
-        return set(p)
-
-class Event(Model):
-    def __init__(self, name, participants=[], expenses=[]):
-        self.name = name
-        self.participants = participants
-        self.expenses = expenses
-
-    @property
-    def costs(self):
-        return sum(map(lambda exp: exp.amount, self.expenses))
-
-    def add_participant(self, person):
-        assert isinstance(person, Person)
-        self.participants.append(person)
-
-    def add_expense(self, expense):
-        assert isinstance(expense, Expense)
-        self.expenses.append(expense)
-
-    def __str__(self):
-        return str(self.name)
-
-class Person(Model, GObject.GObject):
-    name = GObject.property(type=str)
-    def __init__(self, name):
-        GObject.GObject.__init__(self)
-        self.name = name
-
-    def __str__(self):
-        return str(self.name)
-
-class Expense(Model):
-    def __init__(self, name, amount):
-        self.name = name
-        self.amount = Decimal(amount)
+from gi.repository import Gtk
 
 
 
+def fill_store(store, data):
+    """
+    * Fills a store from a list of rows
+    """
+    for row in data:
+        store.append(row if isinstance(row, tuple) else (row,))
 
- 
+
+class GruppenkasseStore(object):
+    def __init__(self, transfers, expenses, persons, participations):
+        # money transfer - date, person, amount, description
+        self.transfers = Gtk.ListStore(str, str, float, str)
+        fill_store(self.transfers, transfers)
+
+        # expenses of an event - date, event, amount, description
+        self.expenses = Gtk.ListStore(str, str, float, str)
+        fill_store(self.expenses, expenses)
+
+        # person names
+        self.persons = Gtk.ListStore(str)
+        fill_store(self.persons, persons)
+
+        # participations of person to events - event, person
+        self.participations = Gtk.ListStore(str, str)
+        fill_store(self.participations, participations)
+
+    def participants_of(self, event):
+        """ 
+        * Returns a liststore of all participants of an event
+        """
+        def visible_func(model, index, user_data):
+            return model[index][0] == event
+
+        modelfilter = self.participations.filter_new()
+        modelfilter.set_visible_func(visible_func)
+
+    def events_attended(self, person):
+        """ 
+        * Returns a liststore of all events this person attended
+        """
+        def visible_func(model, index, user_data):
+            return model[index][0] == person
+
+        modelfilter = self.participations.filter_new()
+        modelfilter.set_visible_func(visible_func)        
+
+
+
 

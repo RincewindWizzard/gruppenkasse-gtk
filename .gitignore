@@ -1,3 +1,4 @@
 *.pyc
 env/*
-*example_data.py
+example_data.py
+build/*
