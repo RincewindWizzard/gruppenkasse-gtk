@@ -14,7 +14,7 @@ class GruppenkasseGUI(object):
         # TODO: Load and Save Data
         # self.model = model.Fund
         import example_data
-        self.model = model.GruppenkasseStore()
+        self.model = None
 
         self.builder = BuilderWrapper()
         self.builder.add_from_file("./res/gruppenkasse.glade")
@@ -22,11 +22,11 @@ class GruppenkasseGUI(object):
 
         # Navigation Sidebar
         self._selection_blocked = False # used for unselect_all
-        self.builder.get_object("person_list").set_model(self.model.persons)
+        #self.builder.get_object("person_list").set_model(self.model.persons)
         column = self.builder["person_column"]
         column.set_sort_column_id(0)
 
-        self.builder["event_list"].set_model(self.model.events)
+        #self.builder["event_list"].set_model(self.model.events)
         self.builder["event_column"].set_sort_column_id(0)
 
         # Connect all Signal handlers to this object
@@ -57,10 +57,10 @@ class GruppenkasseGUI(object):
 
             model, path = selection.get_selected_rows()
             event = model[path][0]
-            participants = self.model.participants_of(event)
+            #participants = self.model.participants_of(event)
             participants.append(["Bloed"])
             self.builder["participants_list"].set_model(participants)
-            self.builder["expenses_list"].set_model(self.model.expenses_of(event))
+            #self.builder["expenses_list"].set_model(self.model.expenses_of(event))
 
 
     def on_participant_selected(self, selection):
