@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship, backref, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy import inspect as sqlinspect
-
+from sqlalchemy.orm.session import Session as SQLSession
 
 
 
@@ -143,6 +143,17 @@ class Expense(Base):
 
 
 class Gruppenkasse(object):
+
+    def __init__(self, arg):
+        if isinstance(arg, str):
+            # open database file
+            engine = create_engine('sqlite:///'+arg)
+            Session = sessionmaker()
+            Session.configure(bind=engine)
+            self.db = Session()
+        elif isinstance(arg, SQLSession):
+            self.db = arg          
+
     @staticmethod
     def create_new(path=None):
         if path:
@@ -153,9 +164,6 @@ class Gruppenkasse(object):
         Session.configure(bind=engine)
         Base.metadata.create_all(engine)
         return Gruppenkasse(Session())
-
-    def __init__(self, session):
-        self.db = session
 
     @property
     def events(self):
