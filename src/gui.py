@@ -4,6 +4,7 @@ from gi.repository import Gtk
 from datetime import datetime
 from decimal import Decimal
 from model import Person
+from stores import SQLStore
 
 datefmt = '%d.%m.%y'
 
@@ -59,83 +60,69 @@ class EventTab(object):
 
         self.event = None
 
+        self.event_list = SQLStore(
+            self.kasse.events,
+            lambda event: (event.name, len(event.participants), strfmoney(event.expense_sum), strfmoney(event.expense_per_participant)),
+            int, str, int, str, str
+        )
+
+        self.expense_list = SQLStore(
+            None,
+            lambda expense: (datetime.strftime(expense.date, datefmt), "{:.2f} €".format(expense.amount / 100), str(expense.description)),
+            int, str, str, str
+        )
+
+        self.participants_list = SQLStore(
+            kasse.persons,
+            lambda person: (person.name, person in self.event.participants if self.event else False),
+            int, str, bool
+        )
+
         builder = main_gui.builder
+
         self.event_listview = builder['event_list']
-        self.event_list = Gtk.ListStore(int, str, int, str, str)
         self.event_listview.set_model(self.event_list)
         self.event_listview.get_selection().connect('changed', self.event_selected)
+        self.event_listview.get_selection().select_iter(self.event_list.get_iter_first())
 
-        self.participants = builder['participants_store']
-        self.expense_list = builder["expense_store"]
+        builder['participants_list'].set_model(self.participants_list)
+        builder["expense_list"].set_model(self.expense_list)
 
-        self.participation_toggle = builder['participation_toggle']
-        self.participation_toggle.connect("toggled", self.participation_toggled)
+        #self.participation_toggle =
+        builder['participation_toggle'].connect("toggled", self.participation_toggled)
         builder['event_name_cell'].connect("edited", self.on_event_name_changed)
 
         #builder['add_expense'].connect("edited", self.on_add_expense)
 
-
-        # add all events
-        self.event_list.clear()
-        for event in self.kasse.events:
-            self.event_list.append([event.id, event.name, len(event.participants), strfmoney(event.expense_sum), strfmoney(event.expense_per_participant)])
-    
     def update(self):
-        self.update_events()
-        self.update_expenses()
-
-    
-    def update_events(self, *indices):
-        for index, row in enumerate(self.event_list):
-            if len(indices) == 0 or index in indices:
-                event_id = row[0]
-                event = self.kasse.get_event(event_id)
-                row[1] = event.name
-                row[2] = len(event.participants)
-                row[3] = strfmoney(event.expense_sum)
-                row[4] = strfmoney(event.expense_per_participant)
-
-    def update_expenses(self, *indices):
-        for row in self.expense_list:
-            if len(indices) == 0 or index in indices:
-                expense = self.kasse.get_expense(row[0])
-                row[1] = datetime.strftime(expense.date, datefmt)
-                row[2] = "{:.2f} €".format(expense.amount / 100)
-                row[3] = str(expense.description)
-
-    def update_participations(self, *indices):
-        for row in self.expense_list:
-            if len(indices) == 0 or index in indices:
-                expense = self.kasse.get_expense(row[0])
-                row[1] = datetime.strftime(expense.date, datefmt)
-                row[2] = "{:.2f} €".format(expense.amount / 100)
-                row[3] = str(expense.description)
+        self.event_list.update()
+        self.expense_list.update()
+        self.participants_list.update()
 
     def event_selected(self, selection):
         model, index = selection.get_selected()
-        event_name = model[index][1]
-        event = self.kasse.event_dict[event_name]
-        self.event = event
+        if index:
+            event_name = model[index][1]
+            event = self.kasse.event_dict[event_name]
+            self.event = event
+            self.update()
 
-
-        self.participants.clear()
-        for person in self.kasse.persons:
-            self.participants.append([person.id, person.name, person in event.participants])
-
-        self.expense_list.clear()
-        for expense in event.expenses:
-            self.expense_list.append([expense.id, datetime.strftime(expense.date, datefmt), "{:.2f} €".format(expense.amount / 100), str(expense.description)])
+            self.expense_list.query = self.kasse.expenses.filter_by(event_id=event.id)
 
     def participation_toggled(self, cell, index):
-        person = self.kasse.get_person(self.participants[index][0])
-        participate = not self.participants[index][2]
-        self.participants[index][2] = participate
+        row = self.participants_list[index]
+        person = self.kasse.get_person(row[0])
+        participate = not row[2]
+        row[2] = participate
+
+        
         if participate:
             self.kasse.participate(person, self.event)
         else:
             self.kasse.dont_participate(person, self.event)
 
-        self.update()
+        self.event_list.update()
+
 
     def on_event_name_changed(self, cell, index, new_value):
         event_id = self.event_list[index][0]

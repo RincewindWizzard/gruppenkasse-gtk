@@ -195,7 +195,11 @@ class Gruppenkasse(object):
 
     @property
     def events(self):
-        return self.db.query(Event).all()
+        return self.db.query(Event)
+
+    @property
+    def expenses(self):
+        return self.db.query(Expense)
 
     @property
     def event_dict(self):
@@ -213,11 +217,11 @@ class Gruppenkasse(object):
 
     @property
     def persons(self):
-        return self.db.query(Person).all()
+        return self.db.query(Person)
 
     @property
     def payments(self):
-        return self.db.query(Payment).all()
+        return self.db.query(Payment)
 
     # Shortcut functions disguising sqlalchemy backend
     def new_person(self, name):

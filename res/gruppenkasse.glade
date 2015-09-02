@@ -2,40 +2,6 @@
 <!-- Generated with glade 3.16.1 -->
 <interface>
   <requires lib="gtk+" version="3.10"/>
-  <object class="GtkListStore" id="expense_store">
-    <columns>
-      <!-- column-name guint1 -->
-      <column type="guint"/>
-      <!-- column-name gchararray1 -->
-      <column type="gchararray"/>
-      <!-- column-name gchararray2 -->
-      <column type="gchararray"/>
-      <!-- column-name gchararray3 -->
-      <column type="gchararray"/>
-    </columns>
-  </object>
-  <object class="GtkListStore" id="participants_store">
-    <columns>
-      <!-- column-name guint1 -->
-      <column type="guint"/>
-      <!-- column-name gchararray1 -->
-      <column type="gchararray"/>
-      <!-- column-name gboolean1 -->
-      <column type="gboolean"/>
-    </columns>
-  </object>
-  <object class="GtkListStore" id="payments_store">
-    <columns>
-      <!-- column-name guint1 -->
-      <column type="guint"/>
-      <!-- column-name gchararray1 -->
-      <column type="gchararray"/>
-      <!-- column-name gchararray2 -->
-      <column type="gchararray"/>
-      <!-- column-name gchararray3 -->
-      <column type="gchararray"/>
-    </columns>
-  </object>
   <object class="GtkWindow" id="main_window">
     <property name="can_focus">False</property>
     <property name="hexpand">True</property>
@@ -413,10 +379,9 @@
                         <property name="vexpand">True</property>
                         <property name="shadow_type">in</property>
                         <child>
-                          <object class="GtkTreeView" id="expenses_list">
+                          <object class="GtkTreeView" id="expense_list">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
-                            <property name="model">expense_store</property>
                             <property name="enable_grid_lines">both</property>
                             <property name="enable_tree_lines">True</property>
                             <child internal-child="selection">
@@ -492,10 +457,9 @@
                     <property name="hexpand">True</property>
                     <property name="shadow_type">in</property>
                     <child>
-                      <object class="GtkTreeView" id="participants_view">
+                      <object class="GtkTreeView" id="participants_list">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
-                        <property name="model">participants_store</property>
                         <child internal-child="selection">
                           <object class="GtkTreeSelection" id="treeview-selection6"/>
                         </child>
@@ -788,7 +752,6 @@
                                   <object class="GtkTreeView" id="treeview1">
                                     <property name="visible">True</property>
                                     <property name="can_focus">True</property>
-                                    <property name="model">payments_store</property>
                                     <property name="enable_grid_lines">both</property>
                                     <child internal-child="selection">
                                       <object class="GtkTreeSelection" id="treeview-selection7"/>

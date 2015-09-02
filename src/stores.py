@@ -1,117 +1,65 @@
 #!/usr/bin/python3
 # -*- encoding: utf-8 -*-
 from gi.repository import Gtk, GObject
-
 #class ListStoreFilter(Gtk.ListStore):
 #    def __init__(self, filter_func=None, modify_func=None, *args):
 
-class CustomTreeModel(GObject.GObject, Gtk.TreeModel):
-    def __init__(self, data):
-        self.data = data
-        self._num_rows = len(self.data)
-        if self.data:
-            self._n_columns = len(self.data[0])
-        else:
-            self._n_columns = 0
-        GObject.GObject.__init__(self)
+class SQLStore(Gtk.ListStore):
+    """
+    Fills a Gtk.ListStore with data from a SQL query everytime you call update
+    """
 
-    def do_get_iter(self, path):
-        """Returns a new TreeIter that points at path.
-        The implementation returns a 2-tuple (bool, TreeIter|None).
+    def __init__(self, query, data_func, *types):
         """
-        indices = path.get_indices()
-        if indices[0] < self._num_rows:
-            iter_ = Gtk.TreeIter()
-            iter_.user_data = indices[0]
-            return (True, iter_)
-        else:
-            return (False, None)
-
-    def do_iter_next(self, iter_):
-        """Returns an iter pointing to the next column or None.
-        The implementation returns a 2-tuple (bool, TreeIter|None).
+        data_func(obj) is a function that takes an entry from the sql table an returns a tuple which has to contain the types given in types
+        IMPORTANT: I implicit assume, that obj has an id entry of type int which is the full primary key of the row, which is added to the result of data_func and used to update the row in liststore
         """
-        if iter_.user_data is None and self._num_rows != 0:
-            iter_.user_data = 0
-            return (True, iter_)
-        elif iter_.user_data < self._num_rows - 1:
-            iter_.user_data += 1
-            return (True, iter_)
-        else:
-            return (False, None)
+        self._data_func = data_func
 
-    def do_iter_has_child(self, iter_):
-        """True if iter has children."""
-        return False
+        Gtk.ListStore.__init__(self, *types)
+        self.query = query
 
-    def do_iter_nth_child(self, iter_, n):
-        """Return iter that is set to the nth child of iter."""
-        # We've got a flat list here, so iter_ is always None and the
-        # nth child is the row.
-        iter_ = Gtk.TreeIter()
-        iter_.user_data = n
-        return (True, iter_)
+    @property
+    def query(self):
+        return self._query
 
-    def do_get_path(self, iter_):
-        """Returns tree path references by iter."""
-        if iter_.user_data is not None:
-            path = Gtk.TreePath((iter_.user_data,))
-            return path
-        else:
-            return None
+    @query.setter
+    def query(self, q):
+        self._query = q
+        self.populate()
 
-    def do_get_value(self, iter_, column):
-        """Returns the value for iter and column."""
-        return str(self.data[iter_.user_data][column])
+    @property
+    def data_func(self):
+        return self._data_func
 
-    def do_get_n_columns(self):
-        """Returns the number of columns."""
-        return self._n_columns
+    @data_func.setter
+    def data_func(self, func):
+        self._data_func = func
+        self.populate()
 
-    def do_get_column_type(self, column):
-        """Returns the type of the column."""
-        # Here we only have strings.
-        return str
+    def populate(self):
+        """ Clears all data and populates the store from the query """
+        if self._data_func and self.query:
+            self.clear()
+            for obj in self.query.all():
+                self.__add_row(obj)
 
-    def do_get_flags(self):
-        """Returns the flags supported by this interface."""
-        return Gtk.TreeModelFlags.ITERS_PERSIST
+    def __add_row(self, obj):
+        row = (obj.id, ) + self.data_func(obj)
+        self.append(row)
 
-class ListModifier(object):
-    _singletons = {}
-    """ Creates an altered view of a list """
-    def __init__(self, data, col, value):
-        self.data = data
-        self.mapping = []
+    def update_row(self, row):
+        new_row = self.data_func(self.query.filter_by(id=row[0]).first())
+        for j, val in enumerate(new_row):
+            row[j + 1] = val
 
-        # Filter all rows, which contain value in col
-        for key, row in enumerate(data):
-            if row[col] == value:
-                self.mapping.append(key)
+    def update(self, *indices):
+        if self._data_func and self.query:
+            if len(indices) == 0:
+                for row in self:
+                    self.update_row(row)
 
-        self.col = col
-        self.value = value
-
-    def append(self, row):
-        index = len(self.mapping)
-        self.mapping.append(len(self.data))
-        self.data.append(None)
-        self[index] = row
-
-    def __getitem__(self, key):
-        row = tuple(self.data[self.mapping[key]])
-        row = row[:self.col] + row[self.col + 1:]
-        return row
-
-    def __setitem__(self, key, row):
-        row = tuple(row)
-        row = tuple(row[:self.col] + (self.value,) + row[self.col + 1:])
-        self.data[self.mapping[key]] = row
-
-    def __delitem__(self, key):
-        index = self.mapping[key]
-        del self.data[index]
-        del self.mapping[key]
-
-    def __len__(self):
-        return len(self.mapping)
+            else:
+                for index in indices:
+                    self.update_row(self[index])
+    
