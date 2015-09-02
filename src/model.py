@@ -82,7 +82,7 @@ class Event(Base):
 
     @property
     def expense_per_participant(self):
-        return (self.expense_sum) / len(self.participants)
+        return (self.expense_sum) / len(self.participants) if len(self.participants) > 0 else self.expense_sum
 
     @property
     def expense_sum(self):
@@ -164,6 +164,34 @@ class Gruppenkasse(object):
         Session.configure(bind=engine)
         Base.metadata.create_all(engine)
         return Gruppenkasse(Session())
+
+    def close(self):
+        self.db.close()
+
+    def get_person(self, id):
+        return self.db.query(Person).filter(Person.id == id).first()
+
+    def get_event(self, id):
+        return self.db.query(Event).filter(Event.id == id).first()
+
+    def get_expense(self, id):
+        return self.db.query(Expense).filter(Expense.id == id).first()
+
+    def get_payment(self, id):
+        return self.db.query(Payment).filter(Payment.id == id).first()
+
+    def participate(self, person, event):
+        participates = self.db.query(Participation).filter(Participation.person == person.id, Participation.event == event.id).first()
+        if not participates:
+            participates = Participation(person=person.id, event=event.id)
+            self.db.add(participates)
+            self.db.commit()
+
+    def dont_participate(self, person, event):
+        participates = self.db.query(Participation).filter(Participation.person == person.id, Participation.event == event.id).first()
+        if participates:
+            self.db.delete(participates)
+            self.db.commit()
 
     @property
     def events(self):

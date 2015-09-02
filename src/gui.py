@@ -22,7 +22,7 @@ def money_cell_renderer(column, cell, store, index, user_data):
 
 class PersonTab(object):
     def __init__(self, gui):
-        self.kasse = gui.model
+        self.kasse = gui.kasse
         builder = gui.builder
         self.person_listview = builder['person_list']
         self.person_listview.set_grid_lines(Gtk.TreeViewGridLines.BOTH)
@@ -44,7 +44,7 @@ class PersonTab(object):
         person_id = model[index][0]
 
         
-        person = self.kasse.db.query(Person).filter(Person.id == person_id).first()
+        person = self.kasse.get_person(person_id)
         self.payments.clear()
         for payment in person.payments:
             self.payments.append([payment.id, datetime.strftime(payment.date, datefmt), strfmoney(payment.amount), payment.description])
@@ -57,6 +57,8 @@ class EventTab(object):
         self.kasse = kasse
         self.main_gui = main_gui
 
+        self.event = None
+
         builder = main_gui.builder
         self.event_listview = builder['event_list']
         self.event_list = Gtk.ListStore(int, str, int, str, str)
@@ -64,36 +66,93 @@ class EventTab(object):
         self.event_listview.get_selection().connect('changed', self.event_selected)
 
         self.participants = builder['participants_store']
-        self.update()
+        self.expense_list = builder["expense_store"]
 
-    def update(self):
+        self.participation_toggle = builder['participation_toggle']
+        self.participation_toggle.connect("toggled", self.participation_toggled)
+        builder['event_name_cell'].connect("edited", self.on_event_name_changed)
+
+        #builder['add_expense'].connect("edited", self.on_add_expense)
+
+
+        # add all events
         self.event_list.clear()
-
         for event in self.kasse.events:
             self.event_list.append([event.id, event.name, len(event.participants), strfmoney(event.expense_sum), strfmoney(event.expense_per_participant)])
+    
+    def update(self):
+        self.update_events()
+        self.update_expenses()
+
+    
+    def update_events(self, *indices):
+        for index, row in enumerate(self.event_list):
+            if len(indices) == 0 or index in indices:
+                event_id = row[0]
+                event = self.kasse.get_event(event_id)
+                row[1] = event.name
+                row[2] = len(event.participants)
+                row[3] = strfmoney(event.expense_sum)
+                row[4] = strfmoney(event.expense_per_participant)
+
+    def update_expenses(self, *indices):
+        for row in self.expense_list:
+            if len(indices) == 0 or index in indices:
+                expense = self.kasse.get_expense(row[0])
+                row[1] = datetime.strftime(expense.date, datefmt)
+                row[2] = "{:.2f} €".format(expense.amount / 100)
+                row[3] = str(expense.description)
+
+    def update_participations(self, *indices):
+        for row in self.expense_list:
+            if len(indices) == 0 or index in indices:
+                expense = self.kasse.get_expense(row[0])
+                row[1] = datetime.strftime(expense.date, datefmt)
+                row[2] = "{:.2f} €".format(expense.amount / 100)
+                row[3] = str(expense.description)
 
     def event_selected(self, selection):
         model, index = selection.get_selected()
         event_name = model[index][1]
         event = self.kasse.event_dict[event_name]
-        self.main_gui.on_event_selected(event)
+        self.event = event
+
 
         self.participants.clear()
         for person in self.kasse.persons:
             self.participants.append([person.id, person.name, person in event.participants])
 
+        self.expense_list.clear()
+        for expense in event.expenses:
+            self.expense_list.append([expense.id, datetime.strftime(expense.date, datefmt), "{:.2f} €".format(expense.amount / 100), str(expense.description)])
 
+    def participation_toggled(self, cell, index):
+        person = self.kasse.get_person(self.participants[index][0])
+        participate = not self.participants[index][2]
+        self.participants[index][2] = participate
+        if participate:
+            self.kasse.participate(person, self.event)
+        else:
+            self.kasse.dont_participate(person, self.event)
 
-        
+        self.update()
+
+    def on_event_name_changed(self, cell, index, new_value):
+        event_id = self.event_list[index][0]
+        event = self.kasse.get_event(event_id)
+        event.name = new_value
+        self.kasse.db.commit()
+        self.event_list[index][1] = new_value
+
 
 class GruppenkasseGui(object):
     glade_file = "./res/gruppenkasse.glade"
-    def __init__(self, model):
-        self.model = model
+    def __init__(self, kasse):
+        self.kasse = kasse
         self.builder = BuilderWrapper()
         self.builder.add_from_file(GruppenkasseGui.glade_file)
 
-        self.event_tab = EventTab(self, self.model)
+        self.event_tab = EventTab(self, self.kasse)
         self.person_tab = PersonTab(self)
 
         self.builder["main_window"].show_all()
@@ -109,14 +168,8 @@ class GruppenkasseGui(object):
     #---------------------------------------------------------------------------
     # Signals
     def on_main_window_delete_event(self, *args):
+        self.kasse.close()
         Gtk.main_quit(*args)
-
-    def on_event_selected(self, event):
-        expense_list = self.builder["expense_store"]
-        expense_list.clear()
-
-        for expense in event.expenses:
-            expense_list.append([expense.id, datetime.strftime(expense.date, datefmt), "{:.2f} €".format(expense.amount / 100), str(expense.description)])
 
 
 class BuilderWrapper(Gtk.Builder):

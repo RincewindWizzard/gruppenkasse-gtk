@@ -288,7 +288,7 @@
                                     <property name="title" translatable="yes">Veranstaltung</property>
                                     <property name="clickable">True</property>
                                     <child>
-                                      <object class="GtkCellRendererText" id="event_name_cell">
+                                      <object class="GtkCellRendererText" id="event_name">
                                         <property name="editable">True</property>
                                         <signal name="edited" handler="on_event_name_changed" swapped="no"/>
                                       </object>
