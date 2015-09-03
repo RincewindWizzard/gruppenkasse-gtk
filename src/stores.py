@@ -16,7 +16,7 @@ class SQLStore(Gtk.ListStore):
         """
         self._data_func = data_func
 
-        Gtk.ListStore.__init__(self, *types)
+        Gtk.ListStore.__init__(self, int, *types)
         self.query = query
 
     @property
@@ -26,7 +26,7 @@ class SQLStore(Gtk.ListStore):
     @query.setter
     def query(self, q):
         self._query = q
-        self.populate()
+        self.flush()
 
     @property
     def data_func(self):
@@ -35,31 +35,42 @@ class SQLStore(Gtk.ListStore):
     @data_func.setter
     def data_func(self, func):
         self._data_func = func
-        self.populate()
+        self.flush()
 
-    def populate(self):
+    def flush(self):
         """ Clears all data and populates the store from the query """
         if self._data_func and self.query:
             self.clear()
             for obj in self.query.all():
-                self.__add_row(obj)
+                self.add_row(obj)
 
-    def __add_row(self, obj):
+    def add_row(self, obj):
         row = (obj.id, ) + self.data_func(obj)
-        self.append(row)
+        return self.append(row)
 
-    def update_row(self, row):
-        new_row = self.data_func(self.query.filter_by(id=row[0]).first())
-        for j, val in enumerate(new_row):
-            row[j + 1] = val
+    def update_row(self, index):
+        try:
+            index = self.get_iter(index)
+            if self.iter_is_valid(index):
+                row = self[index]
+                obj = self.query.filter_by(id=row[0]).first()
+                if obj:
+                    new_row = self.data_func(obj)
+                    for j, val in enumerate(new_row):
+                        row[j + 1] = val
+                else:
+                    self.remove(index)
+        except ValueError as e:
+            ...
+            
 
     def update(self, *indices):
         if self._data_func and self.query:
             if len(indices) == 0:
-                for row in self:
-                    self.update_row(row)
+                for index, row in enumerate(self):
+                    self.update_row(index)
 
             else:
                 for index in indices:
-                    self.update_row(self[index])
+                    self.update_row(index)
     

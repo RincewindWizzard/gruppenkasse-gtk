@@ -539,7 +539,7 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
                                 <child>
-                                  <object class="GtkToolButton" id="add_person">
+                                  <object class="GtkToolButton" id="add_person_btn">
                                     <property name="visible">True</property>
                                     <property name="can_focus">False</property>
                                     <property name="label" translatable="yes">Neue Person</property>
@@ -553,7 +553,7 @@
                                   </packing>
                                 </child>
                                 <child>
-                                  <object class="GtkToolButton" id="remove_person">
+                                  <object class="GtkToolButton" id="remove_person_btn">
                                     <property name="visible">True</property>
                                     <property name="sensitive">False</property>
                                     <property name="can_focus">False</property>
@@ -600,8 +600,11 @@
                                             <property name="resizable">True</property>
                                             <property name="title" translatable="yes">Person</property>
                                             <property name="clickable">True</property>
+                                            <property name="sort_column_id">1</property>
                                             <child>
-                                              <object class="GtkCellRendererText" id="person_cell"/>
+                                              <object class="GtkCellRendererText" id="person_cell">
+                                                <property name="editable">True</property>
+                                              </object>
                                               <attributes>
                                                 <attribute name="text">1</attribute>
                                               </attributes>

@@ -151,6 +151,26 @@ class Gruppenkasse(object):
             Session = sessionmaker()
             Session.configure(bind=engine)
             self.db = Session()
+
+            """
+            self.db = Gruppenkasse.create_new().db
+            for person in self._disk_db.query(Person).all():
+                self.db.merge(person)
+
+            for event in self._disk_db.query(Event).all():
+                self.db.merge(event)
+
+            for payment in self._disk_db.query(Payment).all():
+                self.db.merge(payment)
+
+            for expense in self._disk_db.query(Expense).all():
+                self.db.merge(expense)
+
+            for participation in self._disk_db.query(Participation).all():
+                self.db.merge(participation)
+            """
+
+
         elif isinstance(arg, SQLSession):
             self.db = arg          
 

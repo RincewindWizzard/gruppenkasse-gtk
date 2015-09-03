@@ -25,30 +25,69 @@ class PersonTab(object):
     def __init__(self, gui):
         self.kasse = gui.kasse
         builder = gui.builder
-        self.person_listview = builder['person_list']
-        self.person_listview.set_grid_lines(Gtk.TreeViewGridLines.BOTH)
-        self.person_list = Gtk.ListStore(int, str, str, str, str)
-        self.person_listview.set_model(self.person_list)
-        self.person_listview.get_selection().connect('changed', self.person_selected)
+        self.person_list = SQLStore(
+            self.kasse.persons,
+            lambda person: (person.name, strfmoney(person.payed), strfmoney(person.expenses), strfmoney(person.balance)),
+            str, str, str, str
+        )
 
-        self.payments = builder['payments_store']
-            
+        self.person_view = builder['person_list']
+        self.person_view.set_model(self.person_list)
+        self.person_view.get_selection().connect('changed', self.person_selected)
+
+        self.remove_person_btn = builder['remove_person_btn']
+        self.remove_person_btn.connect('clicked', self.on_remove_person)
+
+
+        builder['add_person_btn'].connect('clicked', self.on_add_person)
+        builder['person_cell'].connect('edited', self.person_name_changed)
+
+        self.payments_list = SQLStore(
+            None,
+            lambda payment: (datetime.strftime(payment.date, datefmt), strfmoney(payment.amount), payment.description),
+            str, str, str
+        )
+
         self.update()
 
     def update(self):
-        self.person_list.clear()
-        for person in self.kasse.persons:
-            self.person_list.append([person.id, person.name, strfmoney(person.payed), strfmoney(person.expenses), strfmoney(person.balance)])
+        self.person_list.update()
 
     def person_selected(self, selection):
         model, index = selection.get_selected()
-        person_id = model[index][0]
+        if index and model.iter_is_valid(index):
+            person_id = model[index][0]
+            person = self.kasse.get_person(person_id)
+            self.payments_list.query = self.kasse.payments.filter_by(person_id=person_id)
+            self.remove_person_btn.set_sensitive(True)
 
+    def on_add_person(self, btn):
+        name = "Neue Person"
+        number = 0
+        while self.kasse.persons.filter_by(name="{} {}".format(name, number)).count() > 0:
+            number += 1
+        person = self.kasse.new_person("{} {}".format(name, number))
+        self.kasse.db.commit()
+        index = self.person_list.add_row(person)
+        self.person_view.get_selection().select_iter(index)
         
-        person = self.kasse.get_person(person_id)
-        self.payments.clear()
-        for payment in person.payments:
-            self.payments.append([payment.id, datetime.strftime(payment.date, datefmt), strfmoney(payment.amount), payment.description])
+    def on_remove_person(self, btn):
+        store, index = self.person_view.get_selection().get_selected()
+        row = store[index]
+        self.kasse.persons.filter_by(id=row[0]).delete()
+        self.person_list.update()
+        self.person_view.get_selection().select_iter(self.person_list.get_iter_first())
+        self.kasse.db.commit()
+
+    def person_name_changed(self, cell, index, new_name):
+        row = self.person_list[index]
+        person = self.kasse.get_person(row[0])
+        if person:
+            person.name = new_name
+            self.kasse.db.commit()
+            self.person_list.update()
+
+
 
 
 
@@ -63,19 +102,19 @@ class EventTab(object):
         self.event_list = SQLStore(
             self.kasse.events,
             lambda event: (event.name, len(event.participants), strfmoney(event.expense_sum), strfmoney(event.expense_per_participant)),
-            int, str, int, str, str
+            str, int, str, str
         )
 
         self.expense_list = SQLStore(
             None,
             lambda expense: (datetime.strftime(expense.date, datefmt), "{:.2f} €".format(expense.amount / 100), str(expense.description)),
-            int, str, str, str
+            str, str, str
         )
 
         self.participants_list = SQLStore(
             kasse.persons,
             lambda person: (person.name, person in self.event.participants if self.event else False),
-            int, str, bool
+            str, bool
         )
 
         builder = main_gui.builder
@@ -83,7 +122,10 @@ class EventTab(object):
         self.event_listview = builder['event_list']
         self.event_listview.set_model(self.event_list)
         self.event_listview.get_selection().connect('changed', self.event_selected)
-        self.event_listview.get_selection().select_iter(self.event_list.get_iter_first())
+
+        root = self.event_list.get_iter_first()
+        if root:
+            self.event_listview.get_selection().select_iter(root)
 
         builder['participants_list'].set_model(self.participants_list)
         builder["expense_list"].set_model(self.expense_list)
@@ -110,18 +152,19 @@ class EventTab(object):
             self.expense_list.query = self.kasse.expenses.filter_by(event_id=event.id)
 
     def participation_toggled(self, cell, index):
-        row = self.participants_list[index]
-        person = self.kasse.get_person(row[0])
-        participate = not row[2]
-        row[2] = participate
+        if self.event:
+            row = self.participants_list[index]
+            person = self.kasse.get_person(row[0])
+            participate = not row[2]
+            row[2] = participate
 
-        
-        if participate:
-            self.kasse.participate(person, self.event)
-        else:
-            self.kasse.dont_participate(person, self.event)
+            
+            if participate:
+                self.kasse.participate(person, self.event)
+            else:
+                self.kasse.dont_participate(person, self.event)
 
-        self.event_list.update()
+            self.event_list.update()
 
 
     def on_event_name_changed(self, cell, index, new_value):
