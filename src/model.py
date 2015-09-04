@@ -80,6 +80,7 @@ class Event(Base):
                        secondary='participations',
                        backref="events")
 
+
     @property
     def expense_per_participant(self):
         return (self.expense_sum) / len(self.participants) if len(self.participants) > 0 else self.expense_sum
@@ -119,7 +120,7 @@ class Payment(Base):
         )
 
     def __str__(self):
-        return self.name
+        return repr(self)
 
 class Expense(Base):
     __tablename__ = 'expenses'
@@ -186,7 +187,31 @@ class Gruppenkasse(object):
         return Gruppenkasse(Session())
 
     def close(self):
+        self.db.commit()
         self.db.close()
+
+    def set_name_save(self, obj, prefered_name):
+
+        if not obj.name == prefered_name:
+            if isinstance(obj, Person):
+                # choose a unique name
+                i = 0
+                name = prefered_name
+                while self.db.query(Person).filter_by(name=name).count() > 0:
+                    i += 1
+                    name = "{} {}".format(prefered_name, i)
+
+                obj.name = name
+
+            elif isinstance(obj, Event):
+                # choose a unique name
+                i = 0
+                name = prefered_name
+                while self.db.query(Event).filter_by(name=name).count() > 0:
+                    i += 1
+                    name = "{} {}".format(prefered_name, i)
+
+                obj.name = name
 
     def get_person(self, id):
         return self.db.query(Person).filter(Person.id == id).first()
@@ -245,9 +270,11 @@ class Gruppenkasse(object):
 
     # Shortcut functions disguising sqlalchemy backend
     def new_person(self, name):
-        p = Person(name=name)
-        self.db.add(p)
-        return p
+
+        person = Person()
+        person.set_name_save(name)
+        self.db.add(person)
+        return person
 
     def new_event(self, name):
         name_prefered = name
@@ -258,6 +285,7 @@ class Gruppenkasse(object):
 
         event = Event(name=name)
         self.db.add(event)
+        self.db.commit()
         return event
 
     def new_payment(self, date, person, amount, description):
@@ -265,6 +293,7 @@ class Gruppenkasse(object):
             person = self.person_dict[person]
         payment = Payment(date=date, person=person, amount=amount, description=description)
         self.db.add(payment)
+        self.db.commit()
         return payment
 
     def remove_event(self, event):
@@ -272,6 +301,18 @@ class Gruppenkasse(object):
         self.db.query(Participation).filter_by(event=event.id).delete()
         self.db.query(Expense).filter_by(event_id=event.id).delete()
         self.db.query(Event).filter_by(id=event.id).delete()
+
+    def remove_payment(self, payment):
+        # remove participations and expenses
+        self.db.query(Payment).filter_by(id=payment.id).delete()
+
+
+    def remove_person(self, person):
+        pid = person.id
+        # remove participations and expenses
+        self.db.query(Participation).filter_by(person=pid).delete()
+        self.db.query(Payment).filter_by(person_id=pid).delete()
+        self.db.query(Person).filter_by(id=pid).delete()
 
     def fill_with(self, expenses, payments, participations):
         persons = []

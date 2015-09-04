@@ -3,7 +3,7 @@
 from gi.repository import Gtk
 from datetime import datetime
 from decimal import Decimal
-from model import Person, Event, Expense
+from model import Person, Event, Expense, Person, Payment
 from stores import SQLStore
 
 datefmt = '%d.%m.%y'
@@ -56,18 +56,19 @@ class CRUD_TreeView(object):
 
     def on_cell_modified(self, cell, index, new_value, column):
         obj = self.store.get_object(index)
-    
         if obj and self.modify_func:
             self.modify_func(column, cell, index, obj, new_value)
             self.store.session.commit()
             self.store.update()
-            self.changed_func()
+            if self.changed_func:
+                self.changed_func()
         
     def on_add_btn_clicked(self, btn):
         obj = self.create_func()
         index = self.store.append_object(obj)
         self.selection.select_iter(index)
-        self.changed_func()
+        if self.changed_func:
+            self.changed_func()
 
     def on_selected(self, selection):
         self.del_btn.set_sensitive(True)
@@ -89,31 +90,27 @@ class CRUD_TreeView(object):
                 self.selection.select_iter(index)
             else:
                 self.selection.select_iter(next)
-            self.changed_func()
+
+            if self.changed_func:
+                self.changed_func()
         
 
 
 class PersonTab(object):
     def __init__(self, gui):
         self.kasse = gui.kasse
+        self._person = None
         builder = gui.builder
+        
+
+        self.person_view = builder['person_list']
+
         self.person_list = SQLStore(
             self.kasse.db,
             self.kasse.persons,
             lambda person: (person.name, strfmoney(person.payed), strfmoney(person.expenses), strfmoney(person.balance)),
             str, str, str, str
         )
-
-        self.person_view = builder['person_list']
-        self.person_view.set_model(self.person_list)
-        self.person_view.get_selection().connect('changed', self.person_selected)
-
-        self.remove_person_btn = builder['remove_person_btn']
-        self.remove_person_btn.connect('clicked', self.on_remove_person)
-
-
-        builder['add_person_btn'].connect('clicked', self.on_add_person)
-        builder['person_cell'].connect('edited', self.person_name_changed)
 
         self.payments_list = SQLStore(
             self.kasse.db,
@@ -122,47 +119,95 @@ class PersonTab(object):
             str, str, str
         )
 
+
+        self.person_crud = CRUD_TreeView(
+            self.person_list, 
+            self.person_view, 
+            builder['add_person_btn'], 
+            builder['remove_person_btn'], 
+            select_func=self.on_person_selected, 
+            create_func=self.on_create_person, 
+            modify_func=self.on_edit_person,
+            remove_func=self.on_remove_person
+        )
+
+        self.payment_crud = CRUD_TreeView(
+            self.payments_list, 
+            builder['payments_view'], 
+            builder['add_payment_btn'], 
+            builder['remove_payment_btn'], 
+            select_func=self.on_payment_selected, 
+            create_func=self.on_create_payment, 
+            modify_func=self.on_edit_payment,
+            remove_func=self.on_remove_payment
+        )
+
+
+        self.add_payment_btn = builder['add_payment_btn']
+        self.person_name_cell = builder['person_name_cell']
+
+        self.payment_date_cell = builder['payment_date_cell']
+        self.payment_amount_cell = builder['payment_amount_cell']
+        self.payment_description_cell = builder['payment_description_cell']
         self.update()
 
     def update(self):
         self.person_list.update()
 
-    def person_selected(self, selection):
-        model, index = selection.get_selected()
-        if index and model.iter_is_valid(index):
-            person_id = model[index][0]
-            person = self.kasse.get_person(person_id)
-            self.payments_list.query = self.kasse.payments.filter_by(person_id=person_id)
-            self.remove_person_btn.set_sensitive(True)
+    def on_changed(self):
+        self.person_list.flush()
+        self.payments_list.flush()
 
-    def on_add_person(self, btn):
-        name = "Neue Person"
-        number = 0
-        while self.kasse.persons.filter_by(name="{} {}".format(name, number)).count() > 0:
-            number += 1
-        person = self.kasse.new_person("{} {}".format(name, number))
-        self.kasse.db.commit()
-        index = self.person_list.add_row(person)
-        self.person_view.get_selection().select_iter(index)
-        
-    def on_remove_person(self, btn):
-        store, index = self.person_view.get_selection().get_selected()
-        row = store[index]
-        self.kasse.persons.filter_by(id=row[0]).delete()
-        self.person_list.update()
-        self.person_view.get_selection().select_iter(self.person_list.get_iter_first())
-        self.kasse.db.commit()
+    @property
+    def person(self):
+        return self._person
 
-    def person_name_changed(self, cell, index, new_name):
-        row = self.person_list[index]
-        person = self.kasse.get_person(row[0])
+    @person.setter
+    def person(self, person):
+        self._person = person
         if person:
-            person.name = new_name
-            self.kasse.db.commit()
-            self.person_list.update()
+            self.payments_list.query = self.kasse.db.query(Payment).filter_by(person_id=person.id)
 
 
 
+    # ---------------------------------------------------------------
+    # person CRUD
+    def on_person_selected(self, person):
+        self.person = person
+        self.add_payment_btn.set_sensitive(True)
+
+    def on_create_person(self):
+        return self.kasse.new_person("Neue Person")
+
+    def on_edit_person(self, column, cell, index, person, new_value):
+        if cell == self.person_name_cell:
+            self.kasse.set_name_save(person, new_value)
+
+    def on_remove_person(self, person):
+        self.kasse.remove_person(person)
+        return True
+
+    # --------------------------------------------------------------
+    # payment CRUD
+    def on_payment_selected(self, person):
+        ...
+
+    def on_create_payment(self):
+        return Payment(date=datetime.now(), amount=0, description="", person_id=self.person.id)
+
+    def on_edit_payment(self, column, cell, index, payment, new_value):
+        if cell == self.payment_date_cell:
+            payment.date = datetime.strptime(new_value, datefmt)
+        elif cell == self.payment_amount_cell:
+            payment.amount = strpmoney(new_value)
+        elif cell == self.payment_description_cell:
+            payment.description = new_value
+
+    def on_remove_payment(self, payment):
+        self.kasse.remove_payment(payment)
+        return True
+
+    # --------------------------------------------------------------
 
 
 
@@ -243,6 +288,11 @@ class EventTab(object):
 
         #builder['add_expense'].connect("edited", self.on_add_expense)
 
+    def on_changed(self):
+        self.expense_list.flush()
+        self.event_list.flush()
+        self.participants_list.flush()
+
     # --------------------------------------------------------------------------
     # Event CRUD Listeners
     def on_event_selected(self, event):
@@ -251,9 +301,9 @@ class EventTab(object):
     def on_create_event(self):
         return self.kasse.new_event("Neue Veranstaltung")
 
-    def on_edit_event(self, column, cell, index, obj, new_value):
+    def on_edit_event(self, column, cell, index, event, new_value):
         if cell == self.event_name_cell:
-            obj.name = new_value
+            self.kasse.set_name_save(event, new_value)
 
     def on_remove_event(self, event):
         # remove all participations and expenses
@@ -332,9 +382,9 @@ class GruppenkasseGui(object):
         self.event_tab = EventTab(self, self.kasse)
         self.person_tab = PersonTab(self)
 
-        self.builder["main_window"].show_all()
+        self.builder['notebook'].connect('switch_page', self.on_page_switched)
 
-        self.builder['person_list']
+        self.builder["main_window"].show_all()
 
         # delete Event
         self.builder['main_window'].connect("delete-event", self.on_main_window_delete_event)
@@ -346,7 +396,14 @@ class GruppenkasseGui(object):
     # Signals
     def on_main_window_delete_event(self, *args):
         self.kasse.close()
+        print("Closing")
         Gtk.main_quit(*args)
+
+    def on_page_switched(self, notebook, tab, index):
+        if tab == self.builder['event_tab']:
+            self.event_tab.on_changed()
+        elif tab == self.builder['person_tab']:
+            self.person_tab.on_changed()
 
 
 class BuilderWrapper(Gtk.Builder):
