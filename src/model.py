@@ -250,6 +250,12 @@ class Gruppenkasse(object):
         return p
 
     def new_event(self, name):
+        name_prefered = name
+        i = 0
+        while self.db.query(Event).filter_by(name=name).count() > 0:
+            i += 1
+            name = "{} {}".format(name_prefered, i)
+
         event = Event(name=name)
         self.db.add(event)
         return event
@@ -261,6 +267,11 @@ class Gruppenkasse(object):
         self.db.add(payment)
         return payment
 
+    def remove_event(self, event):
+        # remove participations and expenses
+        self.db.query(Participation).filter_by(event=event.id).delete()
+        self.db.query(Expense).filter_by(event_id=event.id).delete()
+        self.db.query(Event).filter_by(id=event.id).delete()
 
     def fill_with(self, expenses, payments, participations):
         persons = []
