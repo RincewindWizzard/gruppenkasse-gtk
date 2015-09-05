@@ -11,7 +11,7 @@ def db_to_markdown(kasse):
         md += "{} hat an folgenden Veranstaltungen teilgenommen:\n\n".format(person.name)
         for event in kasse.events:
             if person in event.participants:
-                md += "* {}\n".format(event.name)
+                md += "* {} ({})\n".format(event.name, strfmoney(event.expense_per_participant))
 
     md +=  "\n# Veranstaltungen\n"
     for event in kasse.events:
