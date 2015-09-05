@@ -8,6 +8,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy import inspect as sqlinspect
 from sqlalchemy.orm.session import Session as SQLSession
+import os.path
 
 
 
@@ -147,13 +148,19 @@ class Gruppenkasse(object):
 
     def __init__(self, arg):
         if isinstance(arg, str):
+
+            exists = os.path.exists(arg) and os.path.isfile(arg) 
             # open database file
             engine = create_engine('sqlite:///'+arg)
             Session = sessionmaker()
             Session.configure(bind=engine)
+
+            if not exists:
+                Base.metadata.create_all(engine)
             self.db = Session()
 
             """
+            # caching
             self.db = Gruppenkasse.create_new().db
             for person in self._disk_db.query(Person).all():
                 self.db.merge(person)
@@ -272,7 +279,7 @@ class Gruppenkasse(object):
     def new_person(self, name):
 
         person = Person()
-        person.set_name_save(name)
+        self.set_name_save(person, name)
         self.db.add(person)
         return person
 

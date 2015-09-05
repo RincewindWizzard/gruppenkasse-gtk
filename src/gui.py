@@ -5,6 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from model import Person, Event, Expense, Person, Payment
 from stores import SQLStore
+from report import db_to_markdown
 
 datefmt = '%d.%m.%y'
 
@@ -19,6 +20,19 @@ def strpmoney(amount):
 def money_cell_renderer(column, cell, store, index, user_data):
     return store[index]
 
+
+class DatabaseChooserDialog(Gtk.FileChooserDialog):
+    def __init__(self):
+        Gtk.FileChooserDialog.__init__(self, "Datenbank wählen", None,
+            Gtk.FileChooserAction.OPEN,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+        )
+
+
+        filter_any = Gtk.FileFilter()
+        filter_any.set_name("Any files")
+        filter_any.add_pattern("*")
+        self.add_filter(filter_any)
 
 class CRUD_TreeView(object):
     def __init__(self, store, treeview, add_btn, del_btn, select_func=None, create_func=None, modify_func=None, remove_func=None, changed_func=None):
@@ -139,7 +153,8 @@ class PersonTab(object):
             select_func=self.on_payment_selected, 
             create_func=self.on_create_payment, 
             modify_func=self.on_edit_payment,
-            remove_func=self.on_remove_payment
+            remove_func=self.on_remove_payment,
+            changed_func=self.on_payment_changed
         )
 
 
@@ -206,6 +221,9 @@ class PersonTab(object):
     def on_remove_payment(self, payment):
         self.kasse.remove_payment(payment)
         return True
+
+    def on_payment_changed(self):
+        self.person_list.update()
 
     # --------------------------------------------------------------
 
@@ -385,6 +403,9 @@ class GruppenkasseGui(object):
         self.builder['notebook'].connect('switch_page', self.on_page_switched)
 
         self.builder["main_window"].show_all()
+        self.builder["main_window"].maximize()
+
+        self.builder['export_btn'].connect('clicked', self.on_export_report)
 
         # delete Event
         self.builder['main_window'].connect("delete-event", self.on_main_window_delete_event)
@@ -405,6 +426,31 @@ class GruppenkasseGui(object):
         elif tab == self.builder['person_tab']:
             self.person_tab.on_changed()
 
+    def on_export_report(self, *arg):
+        
+        dialog = Gtk.FileChooserDialog("Datenbank wählen", self.builder["main_window"],
+            Gtk.FileChooserAction.SAVE,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+        )
+
+
+        filter_markdown = Gtk.FileFilter()
+        filter_markdown.set_name("Markdown files")
+        filter_markdown.add_pattern("*.md")
+        dialog.add_filter(filter_markdown)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            dst = dialog.get_filename()
+                    
+            with open(dst, "w") as f:
+                f.write(db_to_markdown(self.kasse))
+
+        elif response == Gtk.ResponseType.CANCEL:
+            print("Cancel clicked")
+
+        dialog.destroy()
+        
 
 class BuilderWrapper(Gtk.Builder):
     """ Mimics a Python dict to access the widgets in a syntatic sugared way """

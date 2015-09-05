@@ -791,7 +791,7 @@
                                       <object class="GtkTreeViewColumn" id="treeviewcolumn7">
                                         <property name="title" translatable="yes">Verwendungszweck</property>
                                         <child>
-                                          <object class="GtkCellRendererText" id="cellrenderertext11">
+                                          <object class="GtkCellRendererText" id="payment_description_cell">
                                             <property name="editable">True</property>
                                           </object>
                                           <attributes>
