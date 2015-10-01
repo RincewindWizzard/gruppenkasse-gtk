@@ -1,6 +1,15 @@
 #!/bin/bash
+pgm_dir=`pwd`
+data_dir='/home/dfl/Dokumente/Veranstaltungen/Bewahrerkasse'
+
+cd $data_dir
+git pull origin master
+
+cd $pgm_dir
 python3 src/main.py '/home/dfl/Dokumente/Veranstaltungen/Bewahrerkasse/BewahrerKasse.db' 
-cd /home/dfl/Dokumente/Veranstaltungen/Bewahrerkasse
+
+cd $data_dir
 make
 git add .
-git commit 
+git commit
+git push origin master 

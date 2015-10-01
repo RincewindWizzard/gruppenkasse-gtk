@@ -416,6 +416,10 @@ class GruppenkasseGui(object):
     #---------------------------------------------------------------------------
     # Signals
     def on_main_window_delete_event(self, *args):
+        # write report, branded wit Magierdinge
+        with open('/home/dfl/Dokumente/Veranstaltungen/Bewahrerkasse/BewahrerReport.md', "w") as f:
+            f.write(db_to_markdown(self.kasse))
+
         self.kasse.close()
         print("Closing")
         Gtk.main_quit(*args)
