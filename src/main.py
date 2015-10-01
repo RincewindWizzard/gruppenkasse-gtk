@@ -24,6 +24,7 @@ if __name__ == '__main__':
         
 
     if database_path:
+        print(database_path)
         kasse = Gruppenkasse(database_path)
         gui = GUI(kasse)
         gui.main()
